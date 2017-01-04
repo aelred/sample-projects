@@ -19,12 +19,12 @@
 import ai.grakn.GraknGraph;
 import ai.grakn.graql.MatchQuery;
 import ai.grakn.graql.QueryBuilder;
-import ai.grakn.graql.Reasoner;
 import ai.grakn.migration.owl.OWLMigrator;
-import java.io.InputStream;
 import org.semanticweb.owlapi.apibinding.OWLManager;
 import org.semanticweb.owlapi.model.OWLOntology;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
+
+import java.io.InputStream;
 
 import static ai.grakn.graql.Graql.count;
 import static ai.grakn.graql.Graql.var;
@@ -63,29 +63,27 @@ public class OWLResourceMigrator {
         Long numberCountries = graph.graql().match(var("x").isa("tPerson")).distinct().aggregate(count()).execute();
         System.out.println("\n" + numberCountries + " people in the family tree.");
 
-        Reasoner reasoner = new Reasoner(graph);
-        QueryBuilder qb = graph.graql();
+        QueryBuilder qb = graph.graql().infer(true);
 
         // How many descendants does Eleanor Pringle (1741) have?
         MatchQuery descendantQuery = qb.match(
                 var("x").isa("tPerson"),
-                var("y").id("eeleanor_pringle_1741"),
+                var("y").has("owl-iri", "eeleanor_pringle_1741"),
                 var().isa("op-hasAncestor")
                         .rel("owl-subject-op-hasAncestor", "x")
                         .rel("owl-object-op-hasAncestor", "y"))
                 .select("x");
-        final int descendants = reasoner.resolve(descendantQuery).size();
+        final long descendants = descendantQuery.stream().count();
         System.out.println("Eleanor Pringle has " + descendants + " descdendants.");
 
         // Who are the great uncles of Ethel Archer?
         System.out.println("Great uncles of Ethel Archer:");
         MatchQuery greatUncleQuery = qb.match(
-                var("x").isa("tPerson").id("eethel_archer_1912"),
+                var("x").isa("tPerson").has("owl-iri", "eethel_archer_1912"),
+                var("y").has("owl-iri", var("iri")),
                 var().isa("op-hasGreatUncle")
                         .rel("owl-subject-op-hasGreatUncle", "x")
-                        .rel("owl-object-op-hasGreatUncle", "y"))
-                .select("y");
-        reasoner.resolve(greatUncleQuery)
-                .stream().map(i -> i.get("y").asInstance().getId()).forEach(System.out::println);
+                        .rel("owl-object-op-hasGreatUncle", "y"));
+        greatUncleQuery.get("iri").map(i -> i.asResource().getValue()).forEach(System.out::println);
     }
 }
